@@ -7,14 +7,21 @@
     <style>
         .stock-up { color: green; }
         .stock-down { color: red; }
+        .connection-error { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
     <div class="container mt-4">
         <h1>Cotações em Tempo Real</h1>
-        <div class="alert alert-info" id="connection-status">Conectando...</div>
+        <div class="alert alert-info" id="connection-status">Conectando ao servidor...</div>
         
         <div class="row">
+            <!-- Botão para reconectar manualmente -->
+            <div class="col-12 mb-3">
+                <button id="reconnect-button" class="btn btn-primary">Reconectar</button>
+            </div>
+            
             <div class="col-md-6">
                 <h3>Cotações</h3>
                 <table class="table table-striped">
@@ -48,38 +55,143 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const stockPrices = {};
+            let connectionRetries = 0;
+            const maxRetries = 5;
             
-            // Iniciar a conexão com SignalR
-            const connection = new signalR.HubConnectionBuilder()
-                .withUrl('/stockHub')
-                .withAutomaticReconnect()
-                .build();
+            // Obter a URL base do servidor atual
+            const baseUrl = window.location.origin;
+            let connection;
             
-            // Manipulador para mensagem de boas-vindas
-            connection.on('Welcome', message => {
-                logEvent('Conexão estabelecida: ' + message);
-                document.getElementById('connection-status').textContent = 'Conectado';
-                document.getElementById('connection-status').className = 'alert alert-success';
-            });
-            
-            // Manipulador para atualizações de estoque
-            connection.on('ReceiveStockUpdate', stockUpdate => {
-                stockPrices[stockUpdate.symbol] = stockUpdate;
-                updateStockTable();
+            function setupConnection() {
+                logEvent(`Tentando conectar ao servidor: ${baseUrl}`);
                 
-                // Log apenas algumas atualizações para não sobrecarregar a interface
-                if (Math.random() < 0.1) { // 10% de chance de logar
-                    logEvent(`${stockUpdate.symbol}: ${stockUpdate.price.toFixed(2)} (${stockUpdate.percentChange > 0 ? '+' : ''}${stockUpdate.percentChange.toFixed(2)}%)`);
+                // Iniciar a conexão com SignalR - Configuração alternativa para resolver "Failed to fetch"
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl(`${baseUrl}/stockHub`, {
+                        skipNegotiation: true, // Pular negociação para resolver o erro
+                        transport: signalR.HttpTransportType.WebSockets
+                    })
+                    .withAutomaticReconnect([0, 1000, 5000, 10000])
+                    .configureLogging(signalR.LogLevel.Debug) // Mais detalhes de log
+                    .build();
+                
+                connection.onreconnecting(error => {
+                    const statusDiv = document.getElementById('connection-status');
+                    statusDiv.textContent = `Reconectando: ${error ? error.message : 'Conexão perdida'}`;
+                    statusDiv.className = 'alert alert-warning connection-error';
+                    logEvent('Tentando reconectar ao servidor...');
+                });
+                
+                connection.onreconnected(connectionId => {
+                    const statusDiv = document.getElementById('connection-status');
+                    statusDiv.textContent = `Reconectado! ID: ${connectionId}`;
+                    statusDiv.className = 'alert alert-success';
+                    logEvent('Conexão restabelecida!');
+                    connectionRetries = 0;
+                });
+                
+                connection.onclose(error => {
+                    const statusDiv = document.getElementById('connection-status');
+                    statusDiv.textContent = 'Conexão fechada';
+                    statusDiv.className = 'alert alert-danger';
+                    logEvent('Conexão fechada: ' + (error ? error.message : 'Desconectado'));
+                    
+                    // Tentar reconectar manualmente após um tempo
+                    if (connectionRetries < maxRetries) {
+                        connectionRetries++;
+                        setTimeout(() => {
+                            logEvent(`Tentativa de reconexão manual #${connectionRetries}`);
+                            startConnection();
+                        }, 3000);
+                    }
+                });
+                
+                // Manipulador para mensagem de boas-vindas
+                connection.on('Welcome', message => {
+                    logEvent('Conexão estabelecida: ' + message);
+                    document.getElementById('connection-status').textContent = 'Conectado ao servidor';
+                    document.getElementById('connection-status').className = 'alert alert-success';
+                    connectionRetries = 0;
+                });
+                
+                // Manipulador para atualizações individuais (original)
+                connection.on('ReceiveStockUpdate', stockUpdate => {
+                    stockPrices[stockUpdate.symbol] = stockUpdate;
+                    updateStockTable();
+                    
+                    if (Math.random() < 0.05) {
+                        logEvent(`${stockUpdate.symbol}: ${stockUpdate.price.toFixed(2)} (${stockUpdate.percentChange > 0 ? '+' : ''}${stockUpdate.percentChange.toFixed(2)}%)`);
+                    }
+                });
+                
+                // Manipulador para atualizações em lote
+                connection.on('ReceiveStockUpdates', updates => {
+                    if (updates && updates.length) {
+                        updates.forEach(stockUpdate => {
+                            stockPrices[stockUpdate.symbol] = stockUpdate;
+                        });
+                        
+                        updateStockTable();
+                        logEvent(`Recebidas ${updates.length} atualizações de cotações`);
+                    }
+                });
+            }
+            
+            async function startConnection() {
+                const statusDiv = document.getElementById('connection-status');
+                statusDiv.textContent = 'Conectando ao servidor...';
+                statusDiv.className = 'alert alert-info';
+                
+                if (!connection) {
+                    setupConnection();
                 }
+                
+                try {
+                    await connection.start();
+                    logEvent('Conexão SignalR iniciada');
+                } catch (err) {
+                    statusDiv.textContent = `Erro na conexão: ${err.message}`;
+                    statusDiv.className = 'alert alert-danger';
+                    logEvent(`Erro na conexão: ${err.message}`);
+                    
+                    // Se falhar, tente com uma configuração alternativa
+                    if (connectionRetries === 1) {
+                        logEvent('Tentando conexão com configuração alternativa...');
+                        // Tentar uma segunda abordagem de conexão
+                        connection = new signalR.HubConnectionBuilder()
+                            .withUrl(`${baseUrl}/stockHub`, {
+                                skipNegotiation: false, // Tentar com negociação
+                                transport: signalR.HttpTransportType.LongPolling // Usar long polling como fallback
+                            })
+                            .withAutomaticReconnect()
+                            .build();
+                        
+                        // Reconfigurar handlers...
+                        setupConnection();
+                    }
+                    
+                    // Tentar novamente após 5 segundos
+                    if (connectionRetries < maxRetries) {
+                        connectionRetries++;
+                        setTimeout(startConnection, 5000);
+                    }
+                }
+            }
+            
+            // Configurar botão de reconexão manual
+            document.getElementById('reconnect-button').addEventListener('click', () => {
+                logEvent('Reconexão manual iniciada');
+                connectionRetries = 0;
+                
+                if (connection) {
+                    connection.stop().catch(err => console.error(err));
+                }
+                
+                setTimeout(startConnection, 1000);
             });
             
-            // Iniciar a conexão
-            connection.start()
-                .catch(err => {
-                    document.getElementById('connection-status').textContent = 'Erro na conexão: ' + err;
-                    document.getElementById('connection-status').className = 'alert alert-danger';
-                    logEvent('Erro na conexão: ' + err);
-                });
+            // Iniciar conexão
+            startConnection();
             
             // Função para atualizar a tabela de ações
             function updateStockTable() {
@@ -130,11 +242,15 @@
                 
                 log.insertBefore(item, log.firstChild);
                 
-                // Limitar a 100 mensagens de log
                 if (log.children.length > 100) {
                     log.removeChild(log.lastChild);
                 }
+                
+                console.log(`[${time}] ${message}`);
             }
+            
+            // Registrar URL atual para depuração
+            logEvent(`Base URL: ${baseUrl}`);
         });
     </script>
 </body>

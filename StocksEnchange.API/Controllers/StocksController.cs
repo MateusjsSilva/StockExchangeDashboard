@@ -3,7 +3,7 @@ using StocksEnchange.API.Services;
 
 namespace StocksEnchange.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/stocks")]
     [ApiController]
     public class StocksController : ControllerBase
     {

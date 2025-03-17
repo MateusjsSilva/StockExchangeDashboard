@@ -15,18 +15,32 @@ namespace StocksEnchange.API
             {
                 options.MaximumReceiveMessageSize = 102400;
                 options.StreamBufferCapacity = 20;
+                options.EnableDetailedErrors = true;
             });
             
             builder.Services.AddHostedService<Services.StockService>();
             builder.Services.AddSingleton<Services.StockService>();
             
+            // CORS mais permissivo para desenvolvimento
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowAll", builder =>
+                options.AddDefaultPolicy(builder =>
                 {
-                    builder.AllowAnyOrigin()
-                           .AllowAnyMethod()
-                           .AllowAnyHeader();
+                    builder
+                        .SetIsOriginAllowed(_ => true)
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials();
+                });
+
+                options.AddPolicy("CorsPolicy", builder =>
+                {
+                    builder
+                        .WithOrigins("https://localhost:5001", "https://localhost:7001", 
+                                    "http://localhost:5000", "http://localhost:7000")
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials();
                 });
             });
 
@@ -37,17 +51,19 @@ namespace StocksEnchange.API
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
+                app.UseDeveloperExceptionPage();
             }
 
             app.UseHttpsRedirection();
+            app.UseRouting();
             app.UseAuthorization();
             
             app.UseStaticFiles();
             
-            app.UseCors("AllowAll");
+            app.UseCors();
             
             app.MapControllers();
-            app.MapHub<Hubs.StockHub>("/stockHub");
+            app.MapHub<Hubs.StockHub>("/stock");
             
             app.MapGet("/", async context =>
             {
