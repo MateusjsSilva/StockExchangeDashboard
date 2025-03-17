@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Stock Exchange Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .stock-up { color: green; }
+        .stock-down { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Cotações em Tempo Real</h1>
+        <div class="alert alert-info" id="connection-status">Conectando...</div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h3>Cotações</h3>
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Símbolo</th>
+                            <th>Preço</th>
+                            <th>Variação</th>
+                            <th>%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stocks-table">
+                        <!-- Dados serão inseridos aqui -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h3>Log de Eventos</h3>
+                <div class="card">
+                    <div class="card-body" style="height: 400px; overflow-y: auto;">
+                        <ul class="list-group" id="events-log">
+                            <!-- Log de eventos serão inseridos aqui -->
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const stockPrices = {};
+            
+            // Iniciar a conexão com SignalR
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/stockHub')
+                .withAutomaticReconnect()
+                .build();
+            
+            // Manipulador para mensagem de boas-vindas
+            connection.on('Welcome', message => {
+                logEvent('Conexão estabelecida: ' + message);
+                document.getElementById('connection-status').textContent = 'Conectado';
+                document.getElementById('connection-status').className = 'alert alert-success';
+            });
+            
+            // Manipulador para atualizações de estoque
+            connection.on('ReceiveStockUpdate', stockUpdate => {
+                stockPrices[stockUpdate.symbol] = stockUpdate;
+                updateStockTable();
+                
+                // Log apenas algumas atualizações para não sobrecarregar a interface
+                if (Math.random() < 0.1) { // 10% de chance de logar
+                    logEvent(`${stockUpdate.symbol}: ${stockUpdate.price.toFixed(2)} (${stockUpdate.percentChange > 0 ? '+' : ''}${stockUpdate.percentChange.toFixed(2)}%)`);
+                }
+            });
+            
+            // Iniciar a conexão
+            connection.start()
+                .catch(err => {
+                    document.getElementById('connection-status').textContent = 'Erro na conexão: ' + err;
+                    document.getElementById('connection-status').className = 'alert alert-danger';
+                    logEvent('Erro na conexão: ' + err);
+                });
+            
+            // Função para atualizar a tabela de ações
+            function updateStockTable() {
+                const tbody = document.getElementById('stocks-table');
+                tbody.innerHTML = '';
+                
+                // Ordenar por símbolo
+                const sortedSymbols = Object.keys(stockPrices).sort();
+                
+                for (const symbol of sortedSymbols) {
+                    const stock = stockPrices[symbol];
+                    const row = document.createElement('tr');
+                    
+                    // Símbolo
+                    const symbolCell = document.createElement('td');
+                    symbolCell.textContent = stock.symbol;
+                    row.appendChild(symbolCell);
+                    
+                    // Preço
+                    const priceCell = document.createElement('td');
+                    priceCell.textContent = stock.price.toFixed(2);
+                    row.appendChild(priceCell);
+                    
+                    // Variação
+                    const changeCell = document.createElement('td');
+                    changeCell.textContent = (stock.change > 0 ? '+' : '') + stock.change.toFixed(2);
+                    changeCell.className = stock.change >= 0 ? 'stock-up' : 'stock-down';
+                    row.appendChild(changeCell);
+                    
+                    // Percentual
+                    const percentCell = document.createElement('td');
+                    percentCell.textContent = (stock.percentChange > 0 ? '+' : '') + stock.percentChange.toFixed(2) + '%';
+                    percentCell.className = stock.percentChange >= 0 ? 'stock-up' : 'stock-down';
+                    row.appendChild(percentCell);
+                    
+                    tbody.appendChild(row);
+                }
+            }
+            
+            // Função para registrar eventos
+            function logEvent(message) {
+                const log = document.getElementById('events-log');
+                const item = document.createElement('li');
+                item.className = 'list-group-item';
+                
+                const time = new Date().toLocaleTimeString();
+                item.textContent = `[${time}] ${message}`;
+                
+                log.insertBefore(item, log.firstChild);
+                
+                // Limitar a 100 mensagens de log
+                if (log.children.length > 100) {
+                    log.removeChild(log.lastChild);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
