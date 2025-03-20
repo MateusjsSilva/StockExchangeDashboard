@@ -4,11 +4,105 @@
     <meta charset="utf-8" />
     <title>Stock Exchange Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .stock-up { color: green; }
-        .stock-down { color: red; }
-        .connection-error { animation: blinker 1s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --light-bg: #f8f9fa;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-bg);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        .table {
+            margin-bottom: 0;
+        }
+        
+        .table thead th {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        
+        .table tbody tr {
+            transition: all 0.2s;
+            cursor: move;
+        }
+        
+        .table tbody tr:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+        
+        .stock-up { 
+            color: var(--success-color); 
+            font-weight: bold;
+        }
+        
+        .stock-down { 
+            color: var(--danger-color); 
+            font-weight: bold;
+        }
+        
+        .connection-error { 
+            animation: blinker 1s linear infinite; 
+        }
+        
+        @keyframes blinker { 
+            50% { opacity: 0; } 
+        }
+        
+        .drag-handle {
+            cursor: move;
+            color: #aaa;
+            padding-right: 10px;
+        }
+        
+        .drag-handle:hover {
+            color: var(--secondary-color);
+        }
+        
+        #reconnect-button {
+            background-color: var(--secondary-color);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        #reconnect-button:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #f0f0f0;
+        }
     </style>
 </head>
 <body>
@@ -17,114 +111,102 @@
         <div class="alert alert-info" id="connection-status">Conectando ao servidor...</div>
         
         <div class="row">
-            <!-- Botão para reconectar manualmente -->
             <div class="col-12 mb-3">
-                <button id="reconnect-button" class="btn btn-primary">Reconectar</button>
+                <button id="reconnect-button" class="btn btn-primary">
+                    <i class="fas fa-sync-alt"></i> Reconectar
+                </button>
             </div>
             
-            <div class="col-md-6">
-                <h3>Cotações</h3>
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Símbolo</th>
-                            <th>Preço</th>
-                            <th>Variação</th>
-                            <th>%</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stocks-table">
-                        <!-- Dados serão inseridos aqui -->
-                    </tbody>
-                </table>
-            </div>
-            <div class="col-md-6">
-                <h3>Log de Eventos</h3>
+            <div class="col-12">
                 <div class="card">
-                    <div class="card-body" style="height: 400px; overflow-y: auto;">
-                        <ul class="list-group" id="events-log">
-                            <!-- Log de eventos serão inseridos aqui -->
-                        </ul>
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="mb-0">Cotações</h3>
+                        <small>Arraste as linhas para reordenar</small>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th width="50px"></th>
+                                    <th>Símbolo</th>
+                                    <th>Preço</th>
+                                    <th>Variação</th>
+                                    <th>%</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stocks-table">
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const stockPrices = {};
             let connectionRetries = 0;
             const maxRetries = 5;
             
-            // Obter a URL base do servidor atual
             const baseUrl = window.location.origin;
             let connection;
             
             function setupConnection() {
-                logEvent(`Tentando conectar ao servidor: ${baseUrl}`);
+                updateStatus(`Attempting to connect to server: ${baseUrl}`, 'info');
                 
-                // Iniciar a conexão com SignalR - Configuração alternativa para resolver "Failed to fetch"
-                connection = new signalR.HubConnectionBuilder()
-                    .withUrl(`${baseUrl}/stockHub`, {
-                        skipNegotiation: true, // Pular negociação para resolver o erro
-                        transport: signalR.HttpTransportType.WebSockets
+                // First, verify basic connectivity
+                fetch(`${baseUrl}/api/connectiontest`)
+                    .then(response => {
+                        if (response.ok) {
+                            console.log("Basic API connectivity test successful");
+                        } else {
+                            console.log("Basic API connectivity test failed: " + response.status);
+                        }
                     })
+                    .catch(err => {
+                        console.log("Basic API connectivity test error: " + err.message);
+                    });
+                
+                // Try with all transports enabled for better compatibility
+                connection = new signalR.HubConnectionBuilder()
+                    .withUrl(`${baseUrl}/stockHub`) // Use stockHub endpoint first
                     .withAutomaticReconnect([0, 1000, 5000, 10000])
-                    .configureLogging(signalR.LogLevel.Debug) // Mais detalhes de log
+                    .configureLogging(signalR.LogLevel.Information)
                     .build();
                 
                 connection.onreconnecting(error => {
-                    const statusDiv = document.getElementById('connection-status');
-                    statusDiv.textContent = `Reconectando: ${error ? error.message : 'Conexão perdida'}`;
-                    statusDiv.className = 'alert alert-warning connection-error';
-                    logEvent('Tentando reconectar ao servidor...');
+                    updateStatus(`Reconectando: ${error ? error.message : 'Conexão perdida'}`, 'warning connection-error');
                 });
                 
                 connection.onreconnected(connectionId => {
-                    const statusDiv = document.getElementById('connection-status');
-                    statusDiv.textContent = `Reconectado! ID: ${connectionId}`;
-                    statusDiv.className = 'alert alert-success';
-                    logEvent('Conexão restabelecida!');
+                    updateStatus(`Conectado ao servidor`, 'success');
                     connectionRetries = 0;
                 });
                 
                 connection.onclose(error => {
-                    const statusDiv = document.getElementById('connection-status');
-                    statusDiv.textContent = 'Conexão fechada';
-                    statusDiv.className = 'alert alert-danger';
-                    logEvent('Conexão fechada: ' + (error ? error.message : 'Desconectado'));
+                    updateStatus('Conexão fechada', 'danger');
                     
-                    // Tentar reconectar manualmente após um tempo
                     if (connectionRetries < maxRetries) {
                         connectionRetries++;
                         setTimeout(() => {
-                            logEvent(`Tentativa de reconexão manual #${connectionRetries}`);
                             startConnection();
                         }, 3000);
                     }
                 });
                 
-                // Manipulador para mensagem de boas-vindas
-                connection.on('Welcome', message => {
-                    logEvent('Conexão estabelecida: ' + message);
-                    document.getElementById('connection-status').textContent = 'Conectado ao servidor';
-                    document.getElementById('connection-status').className = 'alert alert-success';
+                connection.on('Welcome', (message, connectionId) => {
+                    updateStatus('Conectado ao servidor', 'success');
                     connectionRetries = 0;
                 });
                 
-                // Manipulador para atualizações individuais (original)
                 connection.on('ReceiveStockUpdate', stockUpdate => {
                     stockPrices[stockUpdate.symbol] = stockUpdate;
                     updateStockTable();
-                    
-                    if (Math.random() < 0.05) {
-                        logEvent(`${stockUpdate.symbol}: ${stockUpdate.price.toFixed(2)} (${stockUpdate.percentChange > 0 ? '+' : ''}${stockUpdate.percentChange.toFixed(2)}%)`);
-                    }
                 });
                 
-                // Manipulador para atualizações em lote
                 connection.on('ReceiveStockUpdates', updates => {
                     if (updates && updates.length) {
                         updates.forEach(stockUpdate => {
@@ -132,15 +214,12 @@
                         });
                         
                         updateStockTable();
-                        logEvent(`Recebidas ${updates.length} atualizações de cotações`);
                     }
                 });
             }
             
             async function startConnection() {
-                const statusDiv = document.getElementById('connection-status');
-                statusDiv.textContent = 'Conectando ao servidor...';
-                statusDiv.className = 'alert alert-info';
+                updateStatus('Conectando ao servidor...', 'info');
                 
                 if (!connection) {
                     setupConnection();
@@ -148,29 +227,37 @@
                 
                 try {
                     await connection.start();
-                    logEvent('Conexão SignalR iniciada');
+                    console.log('Conexão SignalR iniciada');
                 } catch (err) {
-                    statusDiv.textContent = `Erro na conexão: ${err.message}`;
-                    statusDiv.className = 'alert alert-danger';
-                    logEvent(`Erro na conexão: ${err.message}`);
+                    updateStatus(`Erro na conexão: ${err.message}`, 'danger');
                     
-                    // Se falhar, tente com uma configuração alternativa
                     if (connectionRetries === 1) {
-                        logEvent('Tentando conexão com configuração alternativa...');
-                        // Tentar uma segunda abordagem de conexão
+                        console.log('Tentando conexão com configuração alternativa...');
+                        
+                        // Try with the alternative endpoint and different transport options
                         connection = new signalR.HubConnectionBuilder()
-                            .withUrl(`${baseUrl}/stockHub`, {
-                                skipNegotiation: false, // Tentar com negociação
-                                transport: signalR.HttpTransportType.LongPolling // Usar long polling como fallback
+                            .withUrl(`${baseUrl}/stock`, {
+                                skipNegotiation: false, 
+                                transport: signalR.HttpTransportType.LongPolling // Fallback to long polling
                             })
                             .withAutomaticReconnect()
                             .build();
                         
-                        // Reconfigurar handlers...
+                        setupConnection();
+                    } else if (connectionRetries === 2) {
+                        // Try WebSockets with negotiation
+                        console.log('Trying WebSockets with negotiation...');
+                        connection = new signalR.HubConnectionBuilder()
+                            .withUrl(`${baseUrl}/stockHub`, {
+                                skipNegotiation: false,
+                                transport: signalR.HttpTransportType.WebSockets
+                            })
+                            .withAutomaticReconnect()
+                            .build();
+                        
                         setupConnection();
                     }
                     
-                    // Tentar novamente após 5 segundos
                     if (connectionRetries < maxRetries) {
                         connectionRetries++;
                         setTimeout(startConnection, 5000);
@@ -178,9 +265,7 @@
                 }
             }
             
-            // Configurar botão de reconexão manual
             document.getElementById('reconnect-button').addEventListener('click', () => {
-                logEvent('Reconexão manual iniciada');
                 connectionRetries = 0;
                 
                 if (connection) {
@@ -190,38 +275,46 @@
                 setTimeout(startConnection, 1000);
             });
             
-            // Iniciar conexão
             startConnection();
             
-            // Função para atualizar a tabela de ações
+            function updateStatus(message, type) {
+                const statusDiv = document.getElementById('connection-status');
+                statusDiv.textContent = message;
+                statusDiv.className = `alert alert-${type}`;
+            }
+            
             function updateStockTable() {
                 const tbody = document.getElementById('stocks-table');
-                tbody.innerHTML = '';
+                const existingSymbols = Array.from(tbody.querySelectorAll('tr')).map(row => 
+                    row.getAttribute('data-symbol')
+                );
                 
-                // Ordenar por símbolo
-                const sortedSymbols = Object.keys(stockPrices).sort();
+                // Add new symbols that aren't in the table yet
+                const allSymbols = Object.keys(stockPrices);
+                const newSymbols = allSymbols.filter(symbol => !existingSymbols.includes(symbol));
                 
-                for (const symbol of sortedSymbols) {
+                for (const symbol of newSymbols) {
                     const stock = stockPrices[symbol];
                     const row = document.createElement('tr');
+                    row.setAttribute('data-symbol', symbol);
                     
-                    // Símbolo
+                    const handleCell = document.createElement('td');
+                    handleCell.innerHTML = '<i class="fas fa-grip-vertical drag-handle"></i>';
+                    row.appendChild(handleCell);
+                    
                     const symbolCell = document.createElement('td');
                     symbolCell.textContent = stock.symbol;
                     row.appendChild(symbolCell);
                     
-                    // Preço
                     const priceCell = document.createElement('td');
                     priceCell.textContent = stock.price.toFixed(2);
                     row.appendChild(priceCell);
                     
-                    // Variação
                     const changeCell = document.createElement('td');
                     changeCell.textContent = (stock.change > 0 ? '+' : '') + stock.change.toFixed(2);
                     changeCell.className = stock.change >= 0 ? 'stock-up' : 'stock-down';
                     row.appendChild(changeCell);
                     
-                    // Percentual
                     const percentCell = document.createElement('td');
                     percentCell.textContent = (stock.percentChange > 0 ? '+' : '') + stock.percentChange.toFixed(2) + '%';
                     percentCell.className = stock.percentChange >= 0 ? 'stock-up' : 'stock-down';
@@ -229,28 +322,36 @@
                     
                     tbody.appendChild(row);
                 }
-            }
-            
-            // Função para registrar eventos
-            function logEvent(message) {
-                const log = document.getElementById('events-log');
-                const item = document.createElement('li');
-                item.className = 'list-group-item';
                 
-                const time = new Date().toLocaleTimeString();
-                item.textContent = `[${time}] ${message}`;
-                
-                log.insertBefore(item, log.firstChild);
-                
-                if (log.children.length > 100) {
-                    log.removeChild(log.lastChild);
+                // Update existing rows
+                for (const symbol of existingSymbols) {
+                    if (!stockPrices[symbol]) continue; // Skip if we don't have data anymore
+                    
+                    const stock = stockPrices[symbol];
+                    const row = tbody.querySelector(`tr[data-symbol="${symbol}"]`);
+                    
+                    if (row) {
+                        const priceCell = row.children[2];
+                        priceCell.textContent = stock.price.toFixed(2);
+                        
+                        const changeCell = row.children[3];
+                        changeCell.textContent = (stock.change > 0 ? '+' : '') + stock.change.toFixed(2);
+                        changeCell.className = stock.change >= 0 ? 'stock-up' : 'stock-down';
+                        
+                        const percentCell = row.children[4];
+                        percentCell.textContent = (stock.percentChange > 0 ? '+' : '') + stock.percentChange.toFixed(2) + '%';
+                        percentCell.className = stock.percentChange >= 0 ? 'stock-up' : 'stock-down';
+                    }
                 }
-                
-                console.log(`[${time}] ${message}`);
             }
             
-            // Registrar URL atual para depuração
-            logEvent(`Base URL: ${baseUrl}`);
+            // Initialize Sortable.js
+            const stocksTable = document.getElementById('stocks-table');
+            new Sortable(stocksTable, {
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost'
+            });
         });
     </script>
 </body>

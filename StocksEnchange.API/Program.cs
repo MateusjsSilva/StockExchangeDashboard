@@ -21,7 +21,6 @@ namespace StocksEnchange.API
             builder.Services.AddHostedService<Services.StockService>();
             builder.Services.AddSingleton<Services.StockService>();
             
-            // CORS mais permissivo para desenvolvimento
             builder.Services.AddCors(options =>
             {
                 options.AddDefaultPolicy(builder =>
@@ -56,18 +55,18 @@ namespace StocksEnchange.API
 
             app.UseHttpsRedirection();
             app.UseRouting();
-            app.UseAuthorization();
-            
-            app.UseStaticFiles();
             
             app.UseCors();
             
+            app.UseAuthorization();
+            app.UseStaticFiles();
             app.MapControllers();
-            app.MapHub<Hubs.StockHub>("/stock");
+
+            app.MapHub<Hubs.StockHub>("/stockHub");
             
             app.MapGet("/", async context =>
             {
-                context.Response.Redirect("/index.html");
+                await Task.Run(() => context.Response.Redirect("/index.html"));
             });
 
             app.Run();

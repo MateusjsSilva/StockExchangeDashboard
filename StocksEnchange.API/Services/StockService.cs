@@ -23,7 +23,7 @@ namespace StocksEnchange.API.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Serviço de cotações iniciado");
+            _logger.LogInformation("Stock service started");
             _isRunning = true;
             
             while (!stoppingToken.IsCancellationRequested && _isRunning)
@@ -35,17 +35,16 @@ namespace StocksEnchange.API.Services
                 }
                 catch (TaskCanceledException)
                 {
-                    // Ignorar exceções de cancelamento
-                    _logger.LogInformation("Serviço de cotações sendo encerrado");
+                    _logger.LogInformation("Stock service is shutting down");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erro ao atualizar os preços das ações");
-                    await Task.Delay(5000, stoppingToken); // Esperar mais tempo em caso de erro
+                    _logger.LogError(ex, "Error updating stock prices");
+                    await Task.Delay(5000, stoppingToken);
                 }
             }
             
-            _logger.LogInformation("Serviço de cotações encerrado");
+            _logger.LogInformation("Stock service stopped");
         }
 
         private async Task UpdateStockPrices()
@@ -73,16 +72,12 @@ namespace StocksEnchange.API.Services
                     });
                 }
 
-                // Enviar todas as atualizações de uma vez para todos os clientes
                 await _hubContext.Clients.All.SendAsync("ReceiveStockUpdates", updates);
-                
-                // Não enviar para grupos específicos para evitar problemas de conexão
-                // O cliente pode filtrar os dados que deseja exibir
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao enviar atualizações de preços");
-                throw; // Repassar a exceção para ser tratada no método ExecuteAsync
+                _logger.LogError(ex, "Error sending price updates");
+                throw;
             }
         }
 
@@ -106,7 +101,7 @@ namespace StocksEnchange.API.Services
         public override async Task StopAsync(CancellationToken cancellationToken)
         {
             _isRunning = false;
-            _logger.LogInformation("Serviço de cotações está sendo interrompido");
+            _logger.LogInformation("Stock service is stopping");
             await base.StopAsync(cancellationToken);
         }
     }

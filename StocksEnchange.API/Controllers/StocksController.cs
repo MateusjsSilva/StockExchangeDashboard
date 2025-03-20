@@ -3,7 +3,7 @@ using StocksEnchange.API.Services;
 
 namespace StocksEnchange.API.Controllers
 {
-    [Route("api/stocks")]
+    [Route("api/stock")]
     [ApiController]
     public class StocksController : ControllerBase
     {
@@ -26,8 +26,8 @@ namespace StocksEnchange.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erro ao obter preços das ações");
-                return StatusCode(500, "Erro interno ao processar a requisição");
+                _logger.LogError(ex, "Error getting stock prices");
+                return StatusCode(500, "Internal server error");
             }
         }
 
@@ -35,8 +35,8 @@ namespace StocksEnchange.API.Controllers
         public IActionResult GetInfo()
         {
             return Ok(new { 
-                message = "API de cotações em tempo real", 
-                instructions = "Para receber atualizações em tempo real, conecte-se ao endpoint /stockHub usando SignalR"
+                message = "Real-time stock quotes API", 
+                instructions = "To receive real-time updates, connect to the /stockHub endpoint using SignalR"
             });
         }
     }
