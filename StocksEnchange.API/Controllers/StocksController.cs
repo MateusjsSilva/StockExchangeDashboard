@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using StocksEnchange.API.Services;
 
 namespace StocksEnchange.API.Controllers
@@ -8,12 +9,10 @@ namespace StocksEnchange.API.Controllers
     public class StocksController : ControllerBase
     {
         private readonly StockService _stockService;
-        private readonly ILogger<StocksController> _logger;
 
-        public StocksController(StockService stockService, ILogger<StocksController> logger)
+        public StocksController(StockService stockService)
         {
             _stockService = stockService;
-            _logger = logger;
         }
 
         [HttpGet]
@@ -26,7 +25,7 @@ namespace StocksEnchange.API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting stock prices");
+                Log.Error(ex, "Error getting stock prices");
                 return StatusCode(500, "Internal server error");
             }
         }

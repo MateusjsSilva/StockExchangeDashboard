@@ -532,6 +532,61 @@
                 padding: 10px;
             }
         }
+        
+        .sort-controls {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .sort-controls label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 0;
+        }
+        
+        .sort-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .sort-button {
+            background: var(--white);
+            border: 1px solid #ddd;
+            border-radius: 2rem;
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .sort-button:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .sort-button.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        @media (max-width: 576px) {
+            .sort-controls {
+                margin-top: 8px;
+            }
+            
+            .sort-controls label {
+                font-size: 0.7rem;
+            }
+            
+            .sort-button {
+                padding: 4px 8px;
+                font-size: 0.7rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -557,6 +612,14 @@
                 <button class="filter-button active" data-filter="all">Todas</button>
                 <button class="filter-button" data-filter="up">Em alta</button>
                 <button class="filter-button" data-filter="down">Em baixa</button>
+            </div>
+            <div class="sort-controls">
+                <label>Ordenar por:</label>
+                <div class="sort-buttons">
+                    <button class="sort-button" data-sort="default">Padrão</button>
+                    <button class="sort-button" data-sort="price-asc">Preço ↑</button>
+                    <button class="sort-button" data-sort="price-desc">Preço ↓</button>
+                </div>
             </div>
         </div>
         
@@ -596,6 +659,7 @@
             const maxRetries = 5;
             let currentFilter = 'all';
             let searchTerm = '';
+            let currentSort = 'default';
             let chartInstance = null;
             
             const baseUrl = window.location.origin;
@@ -604,6 +668,7 @@
             // Initialize search and filter functionality
             const searchInput = document.getElementById('stock-search');
             const filterButtons = document.querySelectorAll('.filter-button');
+            const sortButtons = document.querySelectorAll('.sort-button');
             
             searchInput.addEventListener('input', function() {
                 searchTerm = this.value.trim().toLowerCase();
@@ -618,6 +683,65 @@
                     applyFilters();
                 });
             });
+            
+            // Add sort button event listeners
+            sortButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    sortButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    currentSort = this.getAttribute('data-sort');
+                    sortStocks();
+                });
+            });
+            
+            function sortStocks() {
+                const container = document.getElementById('stocks-container');
+                const stockCards = Array.from(container.querySelectorAll('.stock-card'));
+                
+                // Don't sort "no results" message
+                const noResultsElement = container.querySelector('.no-results');
+                if (noResultsElement) {
+                    container.removeChild(noResultsElement);
+                }
+                
+                if (currentSort === 'default') {
+                    // No sorting needed - we keep the manual ordering
+                    // Just reapply filters
+                    applyFilters();
+                    return;
+                }
+                
+                stockCards.sort((a, b) => {
+                    const symbolA = a.getAttribute('data-symbol');
+                    const symbolB = b.getAttribute('data-symbol');
+                    const stockDataA = stockPrices[symbolA];
+                    const stockDataB = stockPrices[symbolB];
+                    
+                    if (!stockDataA || !stockDataB) return 0;
+                    
+                    if (currentSort === 'price-asc') {
+                        return stockDataA.price - stockDataB.price;
+                    } else if (currentSort === 'price-desc') {
+                        return stockDataB.price - stockDataA.price;
+                    }
+                    
+                    return 0;
+                });
+                
+                // Remove all cards first
+                stockCards.forEach(card => container.removeChild(card));
+                
+                // Add them back in sorted order
+                stockCards.forEach(card => container.appendChild(card));
+                
+                // Put no results message back at the end
+                if (noResultsElement) {
+                    container.appendChild(noResultsElement);
+                }
+                
+                // Reapply filters after sorting
+                applyFilters();
+            }
             
             function applyFilters() {
                 const stockCards = document.querySelectorAll('.stock-card');
@@ -654,6 +778,47 @@
                     noResultsMessage.style.display = 'block';
                 } else {
                     noResultsMessage.style.display = 'none';
+                }
+                
+                // After filters are applied, we also need to check if we need to sort
+                if (currentSort !== 'default') {
+                    // We only sort visible cards when filtering
+                    const container = document.getElementById('stocks-container');
+                    const visibleCards = Array.from(container.querySelectorAll('.stock-card:not(.hidden)'));
+                    
+                    // Don't sort "no results" message
+                    const noResultsElement = container.querySelector('.no-results');
+                    if (noResultsElement) {
+                        container.removeChild(noResultsElement);
+                    }
+                    
+                    visibleCards.sort((a, b) => {
+                        const symbolA = a.getAttribute('data-symbol');
+                        const symbolB = b.getAttribute('data-symbol');
+                        const stockDataA = stockPrices[symbolA];
+                        const stockDataB = stockPrices[symbolB];
+                        
+                        if (!stockDataA || !stockDataB) return 0;
+                        
+                        if (currentSort === 'price-asc') {
+                            return stockDataA.price - stockDataB.price;
+                        } else if (currentSort === 'price-desc') {
+                            return stockDataB.price - stockDataA.price;
+                        }
+                        
+                        return 0;
+                    });
+                    
+                    // Remove visible cards
+                    visibleCards.forEach(card => container.removeChild(card));
+                    
+                    // Add them back in sorted order
+                    visibleCards.forEach(card => container.appendChild(card));
+                    
+                    // Put no results message back at the end
+                    if (noResultsElement) {
+                        container.appendChild(noResultsElement);
+                    }
                 }
             }
             

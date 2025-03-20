@@ -1,16 +1,10 @@
 using Microsoft.AspNetCore.SignalR;
+using Serilog;
 
 namespace StocksEnchange.API.Hubs
 {
     public class StockHub : Hub
     {
-        private readonly ILogger<StockHub> _logger;
-
-        public StockHub(ILogger<StockHub> logger)
-        {
-            _logger = logger;
-        }
-
         // Called when a new client connects
         public override async Task OnConnectedAsync()
         {
@@ -18,16 +12,16 @@ namespace StocksEnchange.API.Hubs
             var httpContext = Context.GetHttpContext();
             var userAgent = httpContext?.Request.Headers.UserAgent.ToString() ?? "Unknown";
             
-            _logger.LogInformation($"New client connected: {connectionId} | UA: {userAgent}");
+            Log.Information("New client connected: {ConnectionId} | UA: {UserAgent}", connectionId, userAgent);
             
             try
             {
                 await Clients.Caller.SendAsync("Welcome", $"Connected to the stock service. Your connection: {connectionId.Substring(0, 8)}...", connectionId);
-                _logger.LogInformation($"Welcome message sent to: {connectionId}");
+                Log.Information("Welcome message sent to: {ConnectionId}", connectionId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error sending welcome message to: {connectionId}");
+                Log.Error(ex, "Error sending welcome message to: {ConnectionId}", connectionId);
             }
             
             await base.OnConnectedAsync();
@@ -37,11 +31,11 @@ namespace StocksEnchange.API.Hubs
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             var connectionId = Context.ConnectionId;
-            _logger.LogInformation($"Client disconnected: {connectionId}");
+            Log.Information("Client disconnected: {ConnectionId}", connectionId);
             
             if (exception != null)
             {
-                _logger.LogError(exception, $"Error during client disconnection: {connectionId}");
+                Log.Error(exception, "Error during client disconnection: {ConnectionId}", connectionId);
             }
             
             await base.OnDisconnectedAsync(exception);
@@ -51,7 +45,7 @@ namespace StocksEnchange.API.Hubs
         public string Ping()
         {
             var connectionId = Context.ConnectionId;
-            _logger.LogInformation($"Ping received from client: {connectionId}");
+            Log.Information("Ping received from client: {ConnectionId}", connectionId);
             return $"Pong: {DateTime.UtcNow}";
         }
     }
