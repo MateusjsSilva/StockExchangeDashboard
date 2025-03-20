@@ -24,17 +24,6 @@ namespace StocksEnchange.API.Hubs
             {
                 await Clients.Caller.SendAsync("Welcome", $"Connected to the stock service. Your connection: {connectionId.Substring(0, 8)}...", connectionId);
                 _logger.LogInformation($"Welcome message sent to: {connectionId}");
-                
-                // Send a test message to verify connection
-                await Clients.Caller.SendAsync("ReceiveStockUpdates", new[] { 
-                    new { 
-                        Symbol = "TEST", 
-                        Price = 100m, 
-                        Timestamp = DateTime.UtcNow,
-                        Change = 0m,
-                        PercentChange = 0m
-                    } 
-                });
             }
             catch (Exception ex)
             {

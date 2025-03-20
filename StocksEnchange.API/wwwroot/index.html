@@ -1,193 +1,836 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Exchange Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@400;500;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
+            --primary: #0969DA;
+            --background: #EDEEF7;
+            --gray: #F5F5F5;
+            --white: #FCFCFC;
             --success-color: #2ecc71;
             --danger-color: #e74c3c;
-            --light-bg: #f8f9fa;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--light-bg);
+            font-family: "Red Hat Display", sans-serif;
+            font-size: 16px;
+            background: var(--background);
+            padding: 12px;
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 10px;
         }
         
-        h1 {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--secondary-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        .card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-        
-        .table {
+        .dashboard-title {
+            font-size: 1.8rem;
+            color: var(--primary);
             margin-bottom: 0;
+            font-weight: 700;
         }
         
-        .table thead th {
-            background-color: var(--primary-color);
+        .connection-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .connection-badge.connected {
+            background-color: var(--success-color);
             color: white;
-            border: none;
         }
         
-        .table tbody tr {
-            transition: all 0.2s;
-            cursor: move;
+        .connection-badge.disconnected {
+            background-color: var(--danger-color);
+            color: white;
         }
         
-        .table tbody tr:hover {
-            background-color: rgba(52, 152, 219, 0.1);
+        .connection-badge.connecting {
+            background-color: #f39c12;
+            color: white;
         }
         
-        .stock-up { 
-            color: var(--success-color); 
-            font-weight: bold;
-        }
-        
-        .stock-down { 
-            color: var(--danger-color); 
-            font-weight: bold;
-        }
-        
-        .connection-error { 
-            animation: blinker 1s linear infinite; 
-        }
-        
-        @keyframes blinker { 
-            50% { opacity: 0; } 
-        }
-        
-        .drag-handle {
-            cursor: move;
-            color: #aaa;
-            padding-right: 10px;
-        }
-        
-        .drag-handle:hover {
-            color: var(--secondary-color);
+        .connection-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
         }
         
         #reconnect-button {
-            background-color: var(--secondary-color);
+            background-color: var(--primary);
             border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
+            padding: 8px 15px;
+            border-radius: 1rem;
+            color: white;
+            font-weight: 500;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            display: block;
+            width: 100%;
+            max-width: 150px;
+            margin-left: auto;
+            margin-right: auto;
             transition: all 0.3s;
         }
         
         #reconnect-button:hover {
-            background-color: #2980b9;
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         
-        .sortable-ghost {
-            opacity: 0.4;
+        .search-filter-container {
+            margin-bottom: 15px;
+            background: var(--white);
+            border-radius: 1.5rem;
+            padding: 15px;
+            box-shadow: rgba(0, 0, 0, 0.05) 0px 4px 12px 0px;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            padding-left: 40px;
+            border-radius: 1rem;
+            border: 1px solid #ddd;
+            background-color: var(--white);
+            font-size: 0.9rem;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-button {
+            background: var(--white);
+            border: 1px solid #ddd;
+            border-radius: 2rem;
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-button:hover {
             background-color: #f0f0f0;
+        }
+        
+        .filter-button.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        
+        #stocks-container {
+            margin: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            padding: 1rem;
+            width: 100%;
+            background: var(--white);
+            border-radius: 1.5rem;
+            box-shadow: rgba(0, 0, 0, 0.05) 0px 6px 24px 0px;
+            min-height: 200px;
+        }
+        
+        .stock-card {
+            position: relative;
+            z-index: 1;
+            min-height: 3.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            border-radius: 1rem;
+            font-size: 1rem;
+            padding: 0.75rem;
+            align-items: center;
+            background: var(--white);
+            box-shadow: rgba(0, 0, 0, 0.05) 0px 4px 12px 0px;
+            cursor: pointer;
+        }
+        
+        .stock-card:hover {
+            box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 30px 0px;
+        }
+        
+        .stock-card.hidden {
+            display: none;
+        }
+        
+        .stock-symbol {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            background-color: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        
+        .stock-info {
+            display: grid;
+            gap: 0.125rem;
+            flex: 1;
+            min-width: 80px;
+        }
+        
+        .stock-info h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .stock-info p {
+            font-size: 0.85rem;
+            margin: 0;
+        }
+        
+        .stock-metrics {
+            display: flex;
+            gap: 1rem;
+            margin-left: auto;
+        }
+        
+        .metric {
+            text-align: center;
+            min-width: 70px;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: #777;
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-value {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        
+        .stock-up { 
+            color: var(--success-color); 
+        }
+        
+        .stock-down { 
+            color: var(--danger-color); 
+        }
+        
+        .stock-card-chosen {
+            box-shadow: 8px 8px 32px #E1E1E1;
+        }
+        
+        .stock-card-drag {
+            opacity: 0.5;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 20px;
+            color: #777;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 576px) {
+            body {
+                font-size: 14px;
+                padding: 8px;
+            }
+            
+            .container {
+                padding: 5px;
+            }
+            
+            .dashboard-title {
+                font-size: 1.3rem;
+            }
+            
+            .dashboard-header {
+                margin-bottom: 1rem;
+            }
+            
+            .connection-badge {
+                font-size: 0.7rem;
+                padding: 3px 6px;
+            }
+            
+            .search-filter-container {
+                padding: 10px;
+                border-radius: 1rem;
+                margin-bottom: 10px;
+            }
+            
+            .search-box input {
+                padding: 8px 10px 8px 35px;
+                font-size: 0.8rem;
+            }
+            
+            .filter-button {
+                padding: 4px 8px;
+                font-size: 0.7rem;
+            }
+            
+            #stocks-container {
+                padding: 0.75rem;
+                gap: 0.5rem;
+                border-radius: 1rem;
+            }
+            
+            .stock-card {
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 0.6rem;
+                gap: 0.4rem;
+                border-radius: 0.75rem;
+            }
+            
+            .stock-symbol {
+                width: 2.25rem;
+                height: 2.25rem;
+                font-size: 0.8rem;
+            }
+            
+            .stock-info {
+                width: calc(100% - 2.8rem);
+                flex: none;
+            }
+            
+            .stock-info h3 {
+                font-size: 0.85rem;
+            }
+            
+            .stock-info p {
+                font-size: 0.75rem;
+            }
+            
+            .stock-metrics {
+                width: 100%;
+                margin-left: 2.5rem;
+                justify-content: space-between;
+                margin-top: 0.2rem;
+                gap: 0.5rem;
+            }
+            
+            .metric {
+                min-width: auto;
+                flex: 1;
+            }
+            
+            .metric-label {
+                font-size: 0.65rem;
+            }
+            
+            .metric-value {
+                font-size: 0.75rem;
+            }
+            
+            #reconnect-button {
+                max-width: 110px;
+                font-size: 0.75rem;
+                padding: 6px 12px;
+                margin-bottom: 10px;
+            }
+        }
+        
+        @media (max-width: 320px) {
+            .dashboard-title {
+                font-size: 1.1rem;
+            }
+            
+            .stock-symbol {
+                width: 2rem;
+                height: 2rem;
+                font-size: 0.75rem;
+            }
+            
+            .stock-info h3 {
+                font-size: 0.8rem;
+            }
+            
+            .stock-info p {
+                font-size: 0.7rem;
+            }
+            
+            .metric-label {
+                font-size: 0.6rem;
+            }
+            
+            .metric-value {
+                font-size: 0.7rem;
+            }
+        }
+        
+        /* Chart Modal Styles */
+        .chart-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .chart-container {
+            background-color: var(--white);
+            border-radius: 1.5rem;
+            width: 90%;
+            max-width: 800px;
+            height: 70%;
+            max-height: 600px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: fade-in 0.3s ease-out;
+        }
+        
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: var(--primary);
+            color: white;
+            border-top-left-radius: 1.5rem;
+            border-top-right-radius: 1.5rem;
+        }
+        
+        .chart-header h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .chart-close {
+            color: white;
+            background: transparent;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        
+        .chart-body {
+            flex: 1;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .chart-widget {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .stock-card {
+            cursor: pointer;
+        }
+        
+        /* Loading spinner for chart */
+        .chart-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(9, 105, 218, 0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Additional mobile styles for chart */
+        @media (max-width: 576px) {
+            .chart-container {
+                width: 95%;
+                height: 80%;
+            }
+            
+            .chart-header h2 {
+                font-size: 1.1rem;
+            }
+            
+            .chart-header {
+                padding: 10px 15px;
+            }
+            
+            .chart-body {
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1>Cotações em Tempo Real</h1>
-        <div class="alert alert-info" id="connection-status">Conectando ao servidor...</div>
-        
-        <div class="row">
-            <div class="col-12 mb-3">
-                <button id="reconnect-button" class="btn btn-primary">
-                    <i class="fas fa-sync-alt"></i> Reconectar
-                </button>
+    <div class="container">
+        <div class="dashboard-header">
+            <h1 class="dashboard-title">Cotações em Tempo Real</h1>
+            <div id="connection-status" class="connection-badge connecting">
+                <span class="connection-indicator"></span>
+                <span>Conectando</span>
             </div>
-            
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h3 class="mb-0">Cotações</h3>
-                        <small>Arraste as linhas para reordenar</small>
-                    </div>
-                    <div class="card-body p-0">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th width="50px"></th>
-                                    <th>Símbolo</th>
-                                    <th>Preço</th>
-                                    <th>Variação</th>
-                                    <th>%</th>
-                                </tr>
-                            </thead>
-                            <tbody id="stocks-table">
-                            </tbody>
-                        </table>
-                    </div>
+        </div>
+        
+        <button id="reconnect-button" class="btn">
+            <i class="fas fa-sync-alt"></i> Reconectar
+        </button>
+        
+        <div class="search-filter-container">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="stock-search" placeholder="Buscar ação..." autocomplete="off">
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-button active" data-filter="all">Todas</button>
+                <button class="filter-button" data-filter="up">Em alta</button>
+                <button class="filter-button" data-filter="down">Em baixa</button>
+            </div>
+        </div>
+        
+        <div id="stocks-container">
+            <!-- Stock cards will be inserted here -->
+            <div class="no-results" style="display: none;">
+                Nenhuma ação encontrada com esses critérios.
+            </div>
+        </div>
+    </div>
+    
+    <!-- Chart Modal -->
+    <div id="chart-modal" class="chart-modal">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2 id="chart-title">Histórico de Preços</h2>
+                <button class="chart-close" id="chart-close">&times;</button>
+            </div>
+            <div class="chart-body">
+                <div class="chart-widget">
+                    <canvas id="stock-chart"></canvas>
+                </div>
+                <div class="chart-loading" id="chart-loading">
+                    <div class="spinner"></div>
+                    <div>Carregando dados...</div>
                 </div>
             </div>
         </div>
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const stockPrices = {};
             let connectionRetries = 0;
             const maxRetries = 5;
+            let currentFilter = 'all';
+            let searchTerm = '';
+            let chartInstance = null;
             
             const baseUrl = window.location.origin;
             let connection;
             
-            function setupConnection() {
-                updateStatus(`Attempting to connect to server: ${baseUrl}`, 'info');
+            // Initialize search and filter functionality
+            const searchInput = document.getElementById('stock-search');
+            const filterButtons = document.querySelectorAll('.filter-button');
+            
+            searchInput.addEventListener('input', function() {
+                searchTerm = this.value.trim().toLowerCase();
+                applyFilters();
+            });
+            
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.getAttribute('data-filter');
+                    applyFilters();
+                });
+            });
+            
+            function applyFilters() {
+                const stockCards = document.querySelectorAll('.stock-card');
+                let visibleCount = 0;
                 
-                // First, verify basic connectivity
-                fetch(`${baseUrl}/api/connectiontest`)
-                    .then(response => {
-                        if (response.ok) {
-                            console.log("Basic API connectivity test successful");
-                        } else {
-                            console.log("Basic API connectivity test failed: " + response.status);
+                stockCards.forEach(card => {
+                    const symbol = card.getAttribute('data-symbol').toLowerCase();
+                    const stockData = stockPrices[card.getAttribute('data-symbol')];
+                    let matchesFilter = true;
+                    
+                    // Apply text search
+                    if (searchTerm && !symbol.includes(searchTerm)) {
+                        matchesFilter = false;
+                    }
+                    
+                    // Apply category filter
+                    if (currentFilter === 'up' && stockData.change < 0) {
+                        matchesFilter = false;
+                    } else if (currentFilter === 'down' && stockData.change >= 0) {
+                        matchesFilter = false;
+                    }
+                    
+                    if (matchesFilter) {
+                        card.classList.remove('hidden');
+                        visibleCount++;
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+                
+                // Show or hide "no results" message
+                const noResultsMessage = document.querySelector('.no-results');
+                if (visibleCount === 0) {
+                    noResultsMessage.style.display = 'block';
+                } else {
+                    noResultsMessage.style.display = 'none';
+                }
+            }
+            
+            // Chart modal functionality
+            const chartModal = document.getElementById('chart-modal');
+            const chartClose = document.getElementById('chart-close');
+            const chartTitle = document.getElementById('chart-title');
+            const chartLoading = document.getElementById('chart-loading');
+            
+            chartClose.addEventListener('click', function() {
+                chartModal.style.display = 'none';
+                if (chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+            });
+            
+            // Close modal on background click
+            chartModal.addEventListener('click', function(e) {
+                if (e.target === chartModal) {
+                    chartModal.style.display = 'none';
+                    if (chartInstance) {
+                        chartInstance.destroy();
+                        chartInstance = null;
+                    }
+                }
+            });
+            
+            function showStockChart(symbol) {
+                chartTitle.textContent = `Histórico de Preços - ${symbol}`;
+                chartModal.style.display = 'flex';
+                chartLoading.style.display = 'block';
+                
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+                
+                // Simulate loading historical data (replace with actual API call)
+                setTimeout(() => {
+                    // Generate mock data - in a real implementation, fetch this from an API
+                    const mockHistoricalData = generateMockHistoricalData(symbol);
+                    renderChart(symbol, mockHistoricalData);
+                    chartLoading.style.display = 'none';
+                }, 800);
+            }
+            
+            function generateMockHistoricalData(symbol) {
+                const currentStock = stockPrices[symbol];
+                const currentPrice = currentStock ? currentStock.price : 100;
+                const days = 30;
+                const data = [];
+                const labels = [];
+                
+                // Generate dates for the last 30 days
+                for (let i = days - 1; i >= 0; i--) {
+                    const date = new Date();
+                    date.setDate(date.getDate() - i);
+                    labels.push(date.toLocaleDateString('pt-BR'));
+                    
+                    // Generate a random price within a reasonable range of the current price
+                    const volatility = 0.02; // 2% daily volatility
+                    const randomChange = (Math.random() - 0.5) * volatility * currentPrice;
+                    const basePrice = currentPrice * (0.9 + (0.2 * Math.random())); // +/- 10% from current
+                    const price = basePrice + randomChange * (days - i) / 5;
+                    
+                    data.push(price.toFixed(2));
+                }
+                
+                return { labels, data };
+            }
+            
+            function renderChart(symbol, historicalData) {
+                const ctx = document.getElementById('stock-chart').getContext('2d');
+                const currentStock = stockPrices[symbol];
+                const stockColor = currentStock && currentStock.change >= 0 ? 
+                                  'rgba(46, 204, 113, 1)' : 'rgba(231, 76, 60, 1)';
+                const stockBackground = currentStock && currentStock.change >= 0 ? 
+                                      'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)';
+                
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: historicalData.labels,
+                        datasets: [{
+                            label: symbol,
+                            data: historicalData.data,
+                            borderColor: stockColor,
+                            backgroundColor: stockBackground,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            fill: true,
+                            tension: 0.2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `Evolução do Preço - ${symbol}`,
+                                font: {
+                                    family: 'Poppins',
+                                    size: 16,
+                                    weight: 'bold'
+                                }
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${symbol}: $${context.raw}`;
+                                    }
+                                }
+                            },
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value;
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
+                        },
+                        animations: {
+                            tension: {
+                                duration: 1000,
+                                easing: 'linear'
+                            }
                         }
-                    })
-                    .catch(err => {
-                        console.log("Basic API connectivity test error: " + err.message);
-                    });
+                    }
+                });
+            }
+            
+            function setupConnection() {
+                updateConnectionStatus('connecting');
                 
                 // Try with all transports enabled for better compatibility
                 connection = new signalR.HubConnectionBuilder()
                     .withUrl(`${baseUrl}/stockHub`) // Use stockHub endpoint first
                     .withAutomaticReconnect([0, 1000, 5000, 10000])
-                    .configureLogging(signalR.LogLevel.Information)
                     .build();
                 
-                connection.onreconnecting(error => {
-                    updateStatus(`Reconectando: ${error ? error.message : 'Conexão perdida'}`, 'warning connection-error');
+                connection.onreconnecting(() => {
+                    updateConnectionStatus('connecting');
                 });
                 
-                connection.onreconnected(connectionId => {
-                    updateStatus(`Conectado ao servidor`, 'success');
+                connection.onreconnected(() => {
+                    updateConnectionStatus('connected');
                     connectionRetries = 0;
                 });
                 
-                connection.onclose(error => {
-                    updateStatus('Conexão fechada', 'danger');
+                connection.onclose(() => {
+                    updateConnectionStatus('disconnected');
                     
                     if (connectionRetries < maxRetries) {
                         connectionRetries++;
@@ -197,14 +840,14 @@
                     }
                 });
                 
-                connection.on('Welcome', (message, connectionId) => {
-                    updateStatus('Conectado ao servidor', 'success');
+                connection.on('Welcome', () => {
+                    updateConnectionStatus('connected');
                     connectionRetries = 0;
                 });
                 
                 connection.on('ReceiveStockUpdate', stockUpdate => {
                     stockPrices[stockUpdate.symbol] = stockUpdate;
-                    updateStockTable();
+                    updateStockCards();
                 });
                 
                 connection.on('ReceiveStockUpdates', updates => {
@@ -213,13 +856,13 @@
                             stockPrices[stockUpdate.symbol] = stockUpdate;
                         });
                         
-                        updateStockTable();
+                        updateStockCards();
                     }
                 });
             }
             
             async function startConnection() {
-                updateStatus('Conectando ao servidor...', 'info');
+                updateConnectionStatus('connecting');
                 
                 if (!connection) {
                     setupConnection();
@@ -227,18 +870,15 @@
                 
                 try {
                     await connection.start();
-                    console.log('Conexão SignalR iniciada');
                 } catch (err) {
-                    updateStatus(`Erro na conexão: ${err.message}`, 'danger');
+                    updateConnectionStatus('disconnected');
                     
                     if (connectionRetries === 1) {
-                        console.log('Tentando conexão com configuração alternativa...');
-                        
                         // Try with the alternative endpoint and different transport options
                         connection = new signalR.HubConnectionBuilder()
                             .withUrl(`${baseUrl}/stock`, {
                                 skipNegotiation: false, 
-                                transport: signalR.HttpTransportType.LongPolling // Fallback to long polling
+                                transport: signalR.HttpTransportType.LongPolling
                             })
                             .withAutomaticReconnect()
                             .build();
@@ -246,7 +886,6 @@
                         setupConnection();
                     } else if (connectionRetries === 2) {
                         // Try WebSockets with negotiation
-                        console.log('Trying WebSockets with negotiation...');
                         connection = new signalR.HubConnectionBuilder()
                             .withUrl(`${baseUrl}/stockHub`, {
                                 skipNegotiation: false,
@@ -269,7 +908,7 @@
                 connectionRetries = 0;
                 
                 if (connection) {
-                    connection.stop().catch(err => console.error(err));
+                    connection.stop().catch(() => {});
                 }
                 
                 setTimeout(startConnection, 1000);
@@ -277,80 +916,151 @@
             
             startConnection();
             
-            function updateStatus(message, type) {
-                const statusDiv = document.getElementById('connection-status');
-                statusDiv.textContent = message;
-                statusDiv.className = `alert alert-${type}`;
+            function updateConnectionStatus(status) {
+                const statusBadge = document.getElementById('connection-status');
+                statusBadge.className = `connection-badge ${status}`;
+                
+                const statusText = statusBadge.querySelector('span:last-child');
+                
+                switch(status) {
+                    case 'connected':
+                        statusText.textContent = 'Conectado';
+                        break;
+                    case 'disconnected':
+                        statusText.textContent = 'Desconectado';
+                        break;
+                    case 'connecting':
+                        statusText.textContent = 'Conectando';
+                        break;
+                }
             }
             
-            function updateStockTable() {
-                const tbody = document.getElementById('stocks-table');
-                const existingSymbols = Array.from(tbody.querySelectorAll('tr')).map(row => 
-                    row.getAttribute('data-symbol')
+            function updateStockCards() {
+                const container = document.getElementById('stocks-container');
+                const existingSymbols = Array.from(container.querySelectorAll('.stock-card')).map(card => 
+                    card.getAttribute('data-symbol')
                 );
                 
-                // Add new symbols that aren't in the table yet
+                // Add new symbols that aren't in the container yet
                 const allSymbols = Object.keys(stockPrices);
                 const newSymbols = allSymbols.filter(symbol => !existingSymbols.includes(symbol));
                 
                 for (const symbol of newSymbols) {
                     const stock = stockPrices[symbol];
-                    const row = document.createElement('tr');
-                    row.setAttribute('data-symbol', symbol);
+                    const card = document.createElement('div');
+                    card.className = 'stock-card';
+                    card.setAttribute('data-symbol', symbol);
                     
-                    const handleCell = document.createElement('td');
-                    handleCell.innerHTML = '<i class="fas fa-grip-vertical drag-handle"></i>';
-                    row.appendChild(handleCell);
+                    // Add click handler to show chart
+                    card.addEventListener('click', function() {
+                        showStockChart(symbol);
+                    });
                     
-                    const symbolCell = document.createElement('td');
-                    symbolCell.textContent = stock.symbol;
-                    row.appendChild(symbolCell);
+                    // Create the circle with symbol
+                    const symbolDiv = document.createElement('div');
+                    symbolDiv.className = 'stock-symbol';
+                    symbolDiv.textContent = stock.symbol.substring(0, 3);
                     
-                    const priceCell = document.createElement('td');
-                    priceCell.textContent = stock.price.toFixed(2);
-                    row.appendChild(priceCell);
+                    // Create stock info section
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'stock-info';
                     
-                    const changeCell = document.createElement('td');
-                    changeCell.textContent = (stock.change > 0 ? '+' : '') + stock.change.toFixed(2);
-                    changeCell.className = stock.change >= 0 ? 'stock-up' : 'stock-down';
-                    row.appendChild(changeCell);
+                    const stockName = document.createElement('h3');
+                    stockName.textContent = stock.symbol;
                     
-                    const percentCell = document.createElement('td');
-                    percentCell.textContent = (stock.percentChange > 0 ? '+' : '') + stock.percentChange.toFixed(2) + '%';
-                    percentCell.className = stock.percentChange >= 0 ? 'stock-up' : 'stock-down';
-                    row.appendChild(percentCell);
+                    const stockPrice = document.createElement('p');
+                    stockPrice.textContent = `$${stock.price.toFixed(2)}`;
                     
-                    tbody.appendChild(row);
+                    infoDiv.appendChild(stockName);
+                    infoDiv.appendChild(stockPrice);
+                    
+                    // Create metrics section
+                    const metricsDiv = document.createElement('div');
+                    metricsDiv.className = 'stock-metrics';
+                    
+                    // Change metric
+                    const changeMetric = document.createElement('div');
+                    changeMetric.className = 'metric';
+                    
+                    const changeLabel = document.createElement('div');
+                    changeLabel.className = 'metric-label';
+                    changeLabel.textContent = 'Variação';
+                    
+                    const changeValue = document.createElement('div');
+                    changeValue.className = `metric-value ${stock.change >= 0 ? 'stock-up' : 'stock-down'}`;
+                    changeValue.textContent = (stock.change > 0 ? '+' : '') + stock.change.toFixed(2);
+                    
+                    changeMetric.appendChild(changeLabel);
+                    changeMetric.appendChild(changeValue);
+                    
+                    // Percent metric
+                    const percentMetric = document.createElement('div');
+                    percentMetric.className = 'metric';
+                    
+                    const percentLabel = document.createElement('div');
+                    percentLabel.className = 'metric-label';
+                    percentLabel.textContent = '%';
+                    
+                    const percentValue = document.createElement('div');
+                    percentValue.className = `metric-value ${stock.percentChange >= 0 ? 'stock-up' : 'stock-down'}`;
+                    percentValue.textContent = (stock.percentChange > 0 ? '+' : '') + stock.percentChange.toFixed(2) + '%';
+                    
+                    percentMetric.appendChild(percentLabel);
+                    percentMetric.appendChild(percentValue);
+                    
+                    metricsDiv.appendChild(changeMetric);
+                    metricsDiv.appendChild(percentMetric);
+                    
+                    // Assemble the card
+                    card.appendChild(symbolDiv);
+                    card.appendChild(infoDiv);
+                    card.appendChild(metricsDiv);
+                    
+                    container.appendChild(card);
                 }
                 
-                // Update existing rows
+                // Update existing cards and ensure they have click handlers
                 for (const symbol of existingSymbols) {
                     if (!stockPrices[symbol]) continue; // Skip if we don't have data anymore
                     
                     const stock = stockPrices[symbol];
-                    const row = tbody.querySelector(`tr[data-symbol="${symbol}"]`);
+                    const card = container.querySelector(`.stock-card[data-symbol="${symbol}"]`);
                     
-                    if (row) {
-                        const priceCell = row.children[2];
-                        priceCell.textContent = stock.price.toFixed(2);
+                    if (card) {
+                        // Ensure click handler is attached
+                        if (!card.onclick) {
+                            card.addEventListener('click', function() {
+                                showStockChart(symbol);
+                            });
+                        }
                         
-                        const changeCell = row.children[3];
-                        changeCell.textContent = (stock.change > 0 ? '+' : '') + stock.change.toFixed(2);
-                        changeCell.className = stock.change >= 0 ? 'stock-up' : 'stock-down';
+                        // Update price
+                        const priceElement = card.querySelector('.stock-info p');
+                        priceElement.textContent = `$${stock.price.toFixed(2)}`;
                         
-                        const percentCell = row.children[4];
-                        percentCell.textContent = (stock.percentChange > 0 ? '+' : '') + stock.percentChange.toFixed(2) + '%';
-                        percentCell.className = stock.percentChange >= 0 ? 'stock-up' : 'stock-down';
+                        // Update change value
+                        const changeValue = card.querySelector('.stock-metrics .metric:first-child .metric-value');
+                        changeValue.textContent = (stock.change > 0 ? '+' : '') + stock.change.toFixed(2);
+                        changeValue.className = `metric-value ${stock.change >= 0 ? 'stock-up' : 'stock-down'}`;
+                        
+                        // Update percent value
+                        const percentValue = card.querySelector('.stock-metrics .metric:last-child .metric-value');
+                        percentValue.textContent = (stock.percentChange > 0 ? '+' : '') + stock.percentChange.toFixed(2) + '%';
+                        percentValue.className = `metric-value ${stock.percentChange >= 0 ? 'stock-up' : 'stock-down'}`;
                     }
                 }
+                
+                // Apply filters after updating cards
+                applyFilters();
             }
             
             // Initialize Sortable.js
-            const stocksTable = document.getElementById('stocks-table');
-            new Sortable(stocksTable, {
+            const stocksContainer = document.getElementById('stocks-container');
+            new Sortable(stocksContainer, {
                 animation: 150,
-                handle: '.drag-handle',
-                ghostClass: 'sortable-ghost'
+                ghostClass: 'stock-card-drag',
+                chosenClass: 'stock-card-chosen',
+                filter: '.no-results' // Don't allow dragging the "no results" message
             });
         });
     </script>
